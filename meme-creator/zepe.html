@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image Overlay Web App</title>
+  <title>Zepe Meme App</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -134,11 +134,11 @@
 
 <body>
   <div class="container">
-    <h1>Image Overlay Web App</h1>
+    <h1>Zepe Meme Creator</h1>
     <div class="button-container">
-      <label for="image-upload">🖼️ Import Photo</label>
+      <label for="image-upload">🖼️ Import Meme</label>
       <input type="file" id="image-upload" accept="image/*">
-      <button id="save-image">Save Image</button>
+      <button id="save-image">Save Meme</button>
     </div>
     <div id="canvas-container">
       <canvas id="editor-canvas"></canvas>
@@ -232,13 +232,23 @@
     }
 
     function saveImage() {
-      const dataURL = canvas.toDataURL('image/png');
+    const dataURL = canvas.toDataURL('image/png');
+    // Check if the device is mobile (iOS, Android, etc.)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+    // On mobile devices, open the image in a new tab for long-press saving
+      const newTab = window.open();
+      newTab.document.body.innerHTML = `<img src="${dataURL}" alt="Saved Image" style="width:100%; height:auto;">`;
+    } else {
+    // On desktop, trigger a download
       const link = document.createElement('a');
       link.href = dataURL;
-      link.download = 'overlay-image.png';
-      document.body.appendChild(link);
+      link.download = 'shielded-eyes-pfp.png';
+      document.body.appendChild(link); // For Firefox, append the link to the DOM
       link.click();
-      document.body.removeChild(link);
+      document.body.removeChild(link); // Remove the link after the download is triggered
+      }
     }
 
     function insertZepe() {
