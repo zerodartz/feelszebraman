@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Overlay Web App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    .container {
+      max-width: 512px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 26px;
+    }
+
+    #canvas-container {
+      display: flex;
+      justify-content: center;
+      margin: 8px 0;
+      border: 1px solid #ffffff;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    canvas {
+      border: 1px solid #ffffff;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .button-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    button, .button-container label {
+      background-color: #121212;
+      color: #ffffff;
+      border: 2px solid #ffffff;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      flex: 1;
+      text-align: center;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button-container input[type="file"] {
+      display: none;
+    }
+
+    button:hover, .button-container label:hover {
+      background-color: #333333;
+    }
+
+    #slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-group label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      background: #333;
+      outline: none;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+      height: 10px;
+      border-radius: 5px;
+    }
+
+    input[type="range"]:hover {
+      opacity: 1;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      background: #ffffff;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #ffffff;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Image Overlay Web App</h1>
+    <div class="button-container">
+      <label for="image-upload">🖼️ Import Photo</label>
+      <input type="file" id="image-upload" accept="image/*">
+      <button id="save-image">Save Image</button>
+    </div>
+    <div id="canvas-container">
+      <canvas id="editor-canvas"></canvas>
+    </div>
+    <div class="button-container">
+      <button id="insert-zepe">Insert Zepe</button>
+      <button id="flip-zepe">Flip Zepe Horizontally</button>
+    </div>
+    <div id="slider-container">
+      <div class="slider-group">
+        <label for="scale-slider">Scale: <span id="scale-value">100%</span></label>
+        <input type="range" id="scale-slider" min="10" max="140" value="100">
+      </div>
+      <div class="slider-group">
+        <label for="rotation-slider">Rotation: <span id="rotation-value">0°</span></label>
+        <input type="range" id="rotation-slider" min="-85" max="85" value="0">
+      </div>
+    </div>
+  </div>
+  <script>
+    let canvas = document.getElementById('editor-canvas');
+    let ctx = canvas.getContext('2d');
+    let backgroundImage;
+    let overlayImage = new Image();
+    overlayImage.src = 'zepe.png';  // Make sure this file exists in the same directory as your HTML file
+    let overlay = {
+      x: 0,
+      y: 0,
+      scale: 1,
+      rotation: 0,
+      dragging: false,
+      offsetX: 0,
+      offsetY: 0,
+      visible: false,
+      flipped: false
+    };
+
+    function constrain(value, min, max) {
+      return Math.max(min, Math.min(value, max));
+    }
+
+    function resizeCanvas() {
+      const container = document.getElementById('canvas-container');
+      const containerWidth = container.clientWidth;
+      const scale = containerWidth / canvas.width;
+      canvas.style.width = `${containerWidth}px`;
+      canvas.style.height = `${canvas.height * scale}px`;
+    }
+
+    document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+    document.getElementById('save-image').addEventListener('click', saveImage);
+    document.getElementById('insert-zepe').addEventListener('click', insertZepe);
+    document.getElementById('flip-zepe').addEventListener('click', flipZepe);
+
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchmove', handleTouchMove);
+    canvas.addEventListener('touchend', handleTouchEnd);
+
+    const scaleSlider = document.getElementById('scale-slider');
+    const rotationSlider = document.getElementById('rotation-slider');
+    const scaleValueLabel = document.getElementById('scale-value');
+    const rotationValueLabel = document.getElementById('rotation-value');
+
+    scaleSlider.addEventListener('input', handleScaleChange);
+    rotationSlider.addEventListener('input', handleRotationChange);
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file');
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = function(f) {
+        backgroundImage = new Image();
+        backgroundImage.onload = function() {
+          canvas.width = backgroundImage.width;
+          canvas.height = backgroundImage.height;
+          resizeCanvas();
+          redraw();
+        };
+        backgroundImage.src = f.target.result;
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    function saveImage() {
+      const dataURL = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'overlay-image.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function insertZepe() {
+      overlay.visible = true;
+      overlay.x = (canvas.width - overlayImage.width) / 2;
+      overlay.y = (canvas.height - overlayImage.height) / 2;
+      redraw();
+    }
+
+    function flipZepe() {
+      if (overlay.visible) {
+        overlay.flipped = !overlay.flipped;
+        redraw();
+      }
+    }
+
+    function handleMouseDown(e) {
+      handleStart(e.clientX, e.clientY);
+    }
+
+    function handleMouseMove(e) {
+      handleMove(e.clientX, e.clientY);
+    }
+
+    function handleMouseUp() {
+      handleEnd();
+    }
+
+    function handleTouchStart(e) {
+      if (e.touches.length === 1) {
+        e.preventDefault();
+        handleStart(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }
+
+    function handleTouchMove(e) {
+      if (e.touches.length === 1) {
+        e.preventDefault();
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }
+
+    function handleTouchEnd() {
+      handleEnd();
+    }
+
+    function handleStart(clientX, clientY) {
+      if (!overlay.visible) return;
+      const { canvasX, canvasY } = getCanvasCoordinates(clientX, clientY);
+      const rotatedPoint = rotatePoint(canvasX, canvasY, overlay.x + overlayImage.width * overlay.scale / 2, overlay.y + overlayImage.height * overlay.scale / 2, -overlay.rotation);
+
+      if (isInsideOverlay(rotatedPoint.x, rotatedPoint.y)) {
+        overlay.dragging = true;
+        overlay.offsetX = rotatedPoint.x - overlay.x;
+        overlay.offsetY = rotatedPoint.y - overlay.y;
+      }
+    }
+
+    function handleMove(clientX, clientY) {
+      if (!overlay.dragging) return;
+
+      const { canvasX, canvasY } = getCanvasCoordinates(clientX, clientY);
+      const rotatedPoint = rotatePoint(canvasX, canvasY, overlay.x + overlayImage.width * overlay.scale / 2, overlay.y + overlayImage.height * overlay.scale / 2, -overlay.rotation);
+      
+      overlay.x = constrain(rotatedPoint.x - overlay.offsetX, -overlayImage.width * overlay.scale / 2, canvas.width - overlayImage.width * overlay.scale / 2);
+      overlay.y = constrain(rotatedPoint.y - overlay.offsetY, -overlayImage.height * overlay.scale / 2, canvas.height - overlayImage.height * overlay.scale / 2);
+
+      redraw();
+    }
+
+    function handleEnd() {
+      overlay.dragging = false;
+    }
+
+    function isInsideOverlay(x, y) {
+      return x >= overlay.x && x <= overlay.x + overlayImage.width * overlay.scale &&
+             y >= overlay.y && y <= overlay.y + overlayImage.height * overlay.scale;
+    }
+
+    function rotatePoint(x, y, cx, cy, angle) {
+      const radians = (Math.PI / 180) * angle,
+            cos = Math.cos(radians),
+            sin = Math.sin(radians),
+            nx = (cos * (x - cx)) + (sin * (y - cy)) + cx,
+            ny = (cos * (y - cy)) - (sin * (x - cx)) + cy;
+      return {x: nx, y: ny};
+    }
+
+    function getCanvasCoordinates(clientX, clientY) {
+      const canvasRect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / canvasRect.width;
+      const scaleY = canvas.height / canvasRect.height;
+      const canvasX = (clientX - canvasRect.left) * scaleX;
+      const canvasY = (clientY - canvasRect.top) * scaleY;
+      return { canvasX, canvasY };
+    }
+
+    function redraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (backgroundImage) {
+        ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+      }
+
+      if (overlay.visible) {
+        ctx.save();
+        ctx.translate(overlay.x + overlayImage.width * overlay.scale / 2, overlay.y + overlayImage.height * overlay.scale / 2);
+        ctx.rotate(overlay.rotation * Math.PI / 180);
+        if (overlay.flipped) {
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(overlayImage, -overlayImage.width * overlay.scale / 2, -overlayImage.height * overlay.scale / 2, overlayImage.width * overlay.scale, overlayImage.height * overlay.scale);
+        ctx.restore();
+      }
+    }
+
+    function handleScaleChange() {
+      overlay.scale = parseInt(scaleSlider.value) / 100;
+      scaleValueLabel.textContent = `${scaleSlider.value}%`;
+      redraw();
+    }
+
+    function handleRotationChange() {
+      overlay.rotation = parseInt(rotationSlider.value);
+      rotationValueLabel.textContent = `${overlay.rotation}°`;
+      redraw();
+    }
+
+    overlayImage.onload = function() {
+      redraw();
+    };
+  </script>
+</body>
+
+</html>
