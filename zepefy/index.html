@@ -263,27 +263,39 @@
     rotationSlider.addEventListener('input', handleRotationChange);
 
     function handleImageUpload(e) {
-      const file = e.target.files[0];
-      if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file');
-        return;
-      }
+        const file = e.target.files[0];
+        if (!file.type.startsWith('image/')) {
+          alert('Please upload an image file');
+          return;
+        }
 
-      const reader = new FileReader();
+        const reader = new FileReader();
 
-      reader.onload = function(f) {
-        backgroundImage = new Image();
-        backgroundImage.onload = function() {
-          canvas.width = backgroundImage.width;
-          canvas.height = backgroundImage.height;
-          resizeCanvas();
-          redraw();
+        reader.onload = function (f) {
+          backgroundImage = new Image();
+          backgroundImage.onload = function () {
+            // Calculate the correct canvas size
+            let width, height;
+            if (backgroundImage.width < backgroundImage.height) {
+              width = 720;
+              height = 720 * (backgroundImage.height / backgroundImage.width);
+            } else {
+              height = 720;
+              width = 720 * (backgroundImage.width / backgroundImage.height);
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            resizeCanvas();
+
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+          };
+          backgroundImage.src = f.target.result;
         };
-        backgroundImage.src = f.target.result;
-      };
 
-      reader.readAsDataURL(file);
-    }
+        reader.readAsDataURL(file);
+      }
 
     function saveImage() {
     const dataURL = canvas.toDataURL('image/png');
