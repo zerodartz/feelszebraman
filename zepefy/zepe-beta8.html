@@ -291,21 +291,36 @@
     }
 
     function handleTouchMove(e) {
-      e.preventDefault();
-      if (e.touches.length === 1) {
-        handleMove(e.touches[0].clientX, e.touches[0].clientY);
-      } else if (e.touches.length === 2) {
-        const { canvasX, canvasY } = getCanvasCoordinates(e.touches[1].clientX, e.touches[1].clientY);
-        const start = getCanvasCoordinates(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault();
+    if (e.touches.length === 1) {
+    handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    } else if (e.touches.length === 2) {
+    const start = getCanvasCoordinates(e.touches[0].clientX, e.touches[0].clientY);
+    const end = getCanvasCoordinates(e.touches[1].clientX, e.touches[1].clientY);
 
-        const distance = Math.hypot(canvasX - start.canvasX, canvasY - start.canvasY);
-        const angle = Math.atan2(canvasY - start.canvasY, canvasX - start.canvasX) - overlay.startAngle;
+    const distance = Math.hypot(end.canvasX - start.canvasX, end.canvasY - start.canvasY);
+    const angle = Math.atan2(end.canvasY - start.canvasY, end.canvasX - start.canvasX) - overlay.startAngle;
 
-        overlay.scale = (distance / overlay.startDistance);
-        overlay.rotation = angle;
-        redraw();
+    const newScale = distance / overlay.startDistance;
+
+    // Compute the center of the overlay before resizing.
+    const centerX = overlay.x + (overlayImage.width * overlay.scale) / 2;
+    const centerY = overlay.y + (overlayImage.height * overlay.scale) / 2;
+
+    // Update the scale.
+    overlay.scale = newScale;
+
+    // Adjust the x and y based on the new scale to maintain the center position.
+    overlay.x = centerX - (overlayImage.width * overlay.scale) / 2;
+    overlay.y = centerY - (overlayImage.height * overlay.scale) / 2;
+
+    // Update the rotation angle.
+    overlay.rotation = angle;
+
+    redraw();
       }
     }
+
 
     function handleTouchEnd() {
       handleEnd();
